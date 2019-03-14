@@ -1,0 +1,11 @@
+
+dao:
+  #csv-файл-ресурс с вопросами
+  csvResourceName: /i18n/medical
+  #файл с ответами на внешней ФС
+  resultsFileName: result.txt
+
+
+testing:
+  #Кол-во балов для успещного прохождения тестов
+  ratingForPass: 60
