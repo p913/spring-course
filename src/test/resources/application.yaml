@@ -1,0 +1,5 @@
+dao:
+  csvResourceName: /teststub
+  resultsFileName: result.txt
+testing:
+  ratingForPass: 60
