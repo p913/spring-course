@@ -1,5 +1,6 @@
 package com.pvil.otuscourse.task01.service;
 
+import com.pvil.otuscourse.task01.domain.Answer;
 import com.pvil.otuscourse.task01.domain.Question;
 import com.pvil.otuscourse.task01.domain.Student;
 
@@ -27,9 +28,9 @@ public interface TestingService {
     /**
      * Получить ответ студента
      * @param indexQuestion Индекс вопроса, начиная с 0
-     * @return Номер ответа, начиная с 0, или -1, если ответа нет
+     * @return Ответ, всегда {@code not null}
      */
-    int getQuestionAnswer(int indexQuestion);
+    Answer getQuestionAnswer(int indexQuestion);
 
     /**
      * Результат прохождения теста

@@ -1,73 +1,82 @@
 package com.pvil.otuscourse.task01.shell;
 
-import com.pvil.otuscourse.task01.domain.Question;
+import com.pvil.otuscourse.task01.domain.Answer;
 import com.pvil.otuscourse.task01.domain.Student;
+import com.pvil.otuscourse.task01.service.FormatterService;
 import com.pvil.otuscourse.task01.service.LoginService;
-import com.pvil.otuscourse.task01.service.TestingService;
+import com.pvil.otuscourse.task01.service.MessageService;
+import com.pvil.otuscourse.task01.service.TestRunnerService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
 import org.springframework.shell.Availability;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
 
-import java.util.Locale;
-
 @ShellComponent
 public class ShellTestRunner {
     private Student student;
-    private int currentQuestionNumber = -1;
     private boolean complete;
 
     private final LoginService loginService;
 
-    private final TestingService testingService;
+    private final MessageService messageService;
+
+    private final TestRunnerService testRunnerService;
+
+    private final FormatterService formatterService;
 
     @Autowired
-    private MessageSource messageSource;
-
-    @Autowired
-    public ShellTestRunner(LoginService loginService, TestingService testingService) {
+    public ShellTestRunner(LoginService loginService, TestRunnerService testRunnerService,
+                           FormatterService formatterService, MessageService messageService) {
         this.loginService = loginService;
-        this.testingService = testingService;
+        this.testRunnerService = testRunnerService;
+        this.formatterService = formatterService;
+        this.messageService = messageService;
     }
 
     @ShellMethod("Login for testing")
-    public String login(@ShellOption String firstName, @ShellOption String lastName) {
+    public String login(@ShellOption String firstName, @ShellOption String lastName) throws Exception {
+        StringBuilder res = new StringBuilder();
+
         student = loginService.login(firstName, lastName);
         if (student != null) {
-            if (complete)
-                clearAnswers();
-            return messageSource.getMessage("login.ok", null, Locale.getDefault());
+            res.append(messageService.getMessageLocalized("login.ok")).append("\n");
+            res.append(messageService.getMessageLocalized("testing.questionsTotal",
+                    new Object[] {testRunnerService.getQuestionsCount()})).append("\n");
+
+            testRunnerService.run(student);
+            complete = false;
+            if (testRunnerService.next())
+                res.append(formatterService.formatQuestion(testRunnerService.getQuestion(),
+                        testRunnerService.getQuestionIndex()))
+                        .append("\n");
+            else {
+                res.append(messageService.getMessageLocalized("testing.notReady")).append("\n");
+                complete = true;
+            }
         } else
-            return messageSource.getMessage("login.fail", null, Locale.getDefault());
+            res.append(messageService.getMessageLocalized("login.fail"));
+
+        return res.toString();
     }
 
-    @ShellMethod("Start testing")
-    public String start() throws Exception {
-        if (gotoNextQuestion()) {
-            return getQuestionAndVariants();
+    @ShellMethod("Logout so others cannot see your results")
+    public void logout() {
+        student = null;
+    }
+
+    private String answer(int variant) throws Exception {
+        testRunnerService.setAnswer(variant);
+        if (complete = !testRunnerService.next()) {
+            return getResults();
+        } else {
+            return formatterService.formatQuestion(testRunnerService.getQuestion(), testRunnerService.getQuestionIndex());
         }
-        return messageSource.getMessage("testing.notReady", null, Locale.getDefault());
-    }
-
-    public Availability startAvailability() {
-        if (!isLogged())
-            return Availability.unavailable(messageSource.getMessage("login.required", null, Locale.getDefault()));
-        else if (isTestComplete() || currentQuestionNumber >= 0)
-            return Availability.unavailable(messageSource.getMessage("testing.cantStartAgain", null, Locale.getDefault()));
-        else
-            return Availability.available();
     }
 
     @ShellMethod("Variant A for current question")
     public String a() throws Exception {
-        testingService.setQuestionAnswer(currentQuestionNumber, 0);
-        if (gotoNextQuestion()) {
-            return getQuestionAndVariants();
-        } else {
-            return getResults();
-        }
+        return answer(0);
     }
 
     public Availability aAvailability() {
@@ -76,12 +85,7 @@ public class ShellTestRunner {
 
     @ShellMethod("Variant B for current question")
     public String b() throws Exception {
-        testingService.setQuestionAnswer(currentQuestionNumber, 1);
-        if (gotoNextQuestion()) {
-            return getQuestionAndVariants();
-        } else {
-            return getResults();
-        }
+        return answer(1);
     }
 
     public Availability bAvailability() {
@@ -90,12 +94,7 @@ public class ShellTestRunner {
 
     @ShellMethod("Variant C for current question")
     public String c() throws Exception {
-        testingService.setQuestionAnswer(currentQuestionNumber, 2);
-        if (gotoNextQuestion()) {
-            return getQuestionAndVariants();
-        } else {
-            return getResults();
-        }
+        return answer(2);
     }
 
     public Availability cAvailability() {
@@ -104,12 +103,7 @@ public class ShellTestRunner {
 
     @ShellMethod("Variant D for current question")
     public String d() throws Exception {
-        testingService.setQuestionAnswer(currentQuestionNumber, 3);
-        if (gotoNextQuestion()) {
-            return getQuestionAndVariants();
-        } else {
-            return getResults();
-        }
+        return answer(3);
     }
 
     public Availability dAvailability() {
@@ -118,12 +112,7 @@ public class ShellTestRunner {
 
     @ShellMethod("Variant E for current question")
     public String e() throws Exception {
-        testingService.setQuestionAnswer(currentQuestionNumber, 4);
-        if (gotoNextQuestion()) {
-            return getQuestionAndVariants();
-        } else {
-            return getResults();
-        }
+        return answer(4);
     }
 
     public Availability eAvailability() {
@@ -132,12 +121,7 @@ public class ShellTestRunner {
 
     @ShellMethod("Variant F for current question")
     public String f() throws Exception {
-        testingService.setQuestionAnswer(currentQuestionNumber, 5);
-        if (gotoNextQuestion()) {
-            return getQuestionAndVariants();
-        } else {
-            return getResults();
-        }
+        return answer(5);
     }
 
     public Availability fAvailability() {
@@ -146,8 +130,8 @@ public class ShellTestRunner {
 
     @ShellMethod("Skip current question (will be asked later)")
     public String skip() throws Exception {
-        gotoNextQuestion();
-        return getQuestionAndVariants();
+        testRunnerService.next();
+        return formatterService.formatQuestion(testRunnerService.getQuestion(), testRunnerService.getQuestionIndex());
     }
 
     public Availability skipAvailability() {
@@ -161,13 +145,11 @@ public class ShellTestRunner {
 
     private Availability variantsAvailability(int variant) {
         if (!isLogged())
-            return Availability.unavailable(messageSource.getMessage("login.required", null, Locale.getDefault()));
+            return Availability.unavailable(messageService.getMessageLocalized("login.required"));
         else if (isTestComplete())
-            return Availability.unavailable(messageSource.getMessage("testing.complete", null, Locale.getDefault()));
-        else if (currentQuestionNumber == -1)
-            return Availability.unavailable(messageSource.getMessage("testing.notStarted", null, Locale.getDefault()));
-        else if (variant >= testingService.getQuestion(currentQuestionNumber).getVariantsCount())
-            return Availability.unavailable(messageSource.getMessage("testing.variantUnavailable", null, Locale.getDefault()));
+            return Availability.unavailable(messageService.getMessageLocalized("testing.complete"));
+        else if (variant >= testRunnerService.getQuestion().getVariantsCount())
+            return Availability.unavailable(messageService.getMessageLocalized("testing.variantUnavailable"));
         else
             return Availability.available();
     }
@@ -180,83 +162,18 @@ public class ShellTestRunner {
         return complete;
     }
 
-    private boolean gotoNextQuestion() throws Exception {
-        if (isTestComplete())
-            return false;
-        int pass = 1;
-        //Перебираем неотвеченные (пропущенные) вопросы
-        while (pass <= 2) {
-            while (++currentQuestionNumber < testingService.getQuestionsCount()) {
-                if (testingService.getQuestionAnswer(currentQuestionNumber) == -1)
-                    return true;
-            }
-            currentQuestionNumber = -1;
-            pass++;
-        }
-
-        complete = true;
-        testingService.complete(student);
-
-        return false;
-    }
-
-    private String getQuestionAndVariants() {
-        StringBuilder res = new StringBuilder();
-
-        Question question = testingService.getQuestion(currentQuestionNumber);
-        res.append(messageSource.getMessage("testing.question",
-                new Object[] { currentQuestionNumber + 1, testingService.getQuestionsCount(), question.getText()},
-                Locale.getDefault())).append("\n");
-
-        for (var i = 0; i < question.getVariantsCount(); i++) {
-            res.append(messageSource.getMessage("testing.variant",
-                    new Object[] {Character.forDigit(10 + i, 16), question.getVariant(i)},
-                    Locale.getDefault())).append("\n");
-        }
-
-        return res.toString();
-    }
-
     private String getResults() {
         StringBuilder res = new StringBuilder();
         if (student == null)
-            res.append(messageSource.getMessage("testing.none", null, Locale.getDefault()));
+            res.append(messageService.getMessageLocalized("testing.none"));
         else {
-            res.append(messageSource.getMessage(testingService.isTestPassing() ? "testing.resultOk" : "testing.resultFail",
-                    new Object[] {testingService.getTestingResult()},
-                    Locale.getDefault())).append("\n");
+            res.append(messageService.getMessageLocalized(testRunnerService.isTestPassing() ? "testing.resultOk" : "testing.resultFail",
+                    new Object[] {testRunnerService.getTestingResult()}))
+                    .append("\n");
 
-            for (var q = 0; q < testingService.getQuestionsCount(); q++) {
-                if (testingService.getQuestionAnswer(q) != -1) {
-                    Question question = testingService.getQuestion(q);
-                    res.append(messageSource.getMessage("testing.question",
-                            new Object[]{q + 1, testingService.getQuestionsCount(), question.getText()},
-                            Locale.getDefault())).append("\n");
-
-                    if (question.isVariantCorrect(testingService.getQuestionAnswer(q)))
-                        res.append(messageSource.getMessage("testing.answerOk",
-                                new Object[]{question.getVariant(testingService.getQuestionAnswer(q))},
-                                Locale.getDefault())).append("\n");
-                    else {
-                        res.append(messageSource.getMessage("testing.answerReal",
-                                new Object[]{question.getVariant(testingService.getQuestionAnswer(q))},
-                                Locale.getDefault())).append("\n");
-                        res.append(messageSource.getMessage("testing.answerExpected",
-                                new Object[]{question.getVariant(question.getCorrectVariant())},
-                                Locale.getDefault())).append("\n");
-                    }
-                }
-            }
-
+            for (Answer a: testRunnerService.getAnswers())
+                res.append(formatterService.formatAnswer(a)).append("\n");
         }
         return res.toString();
     }
-
-    private void clearAnswers() {
-        currentQuestionNumber = -1;
-        complete = false;
-        for (var i = 0; i < testingService.getQuestionsCount(); i++)
-            testingService.setQuestionAnswer(i, -1);
-    }
-
 }

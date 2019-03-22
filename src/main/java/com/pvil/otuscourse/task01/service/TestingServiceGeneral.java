@@ -2,6 +2,7 @@ package com.pvil.otuscourse.task01.service;
 
 import com.pvil.otuscourse.task01.config.TestingProperties;
 import com.pvil.otuscourse.task01.dao.QuestionsDao;
+import com.pvil.otuscourse.task01.domain.Answer;
 import com.pvil.otuscourse.task01.domain.Question;
 import com.pvil.otuscourse.task01.domain.Student;
 import org.springframework.stereotype.Service;
@@ -43,13 +44,22 @@ public class TestingServiceGeneral implements TestingService {
         if (variantIndex >= getQuestion(questionIndex).getVariantsCount())
             throw new IndexOutOfBoundsException("Указан номер ответа, превышающий кол-во вариантов");
 
-        answers.put(questionIndex, variantIndex);
+        if (variantIndex == -1)
+            answers.remove(questionIndex);
+        else
+            answers.put(questionIndex, variantIndex);
     }
 
     @Override
-    public int getQuestionAnswer(int indexQuestion) {
+    public Answer getQuestionAnswer(int indexQuestion) {
+        Question question = questions.get(indexQuestion);
         Integer a = answers.get(indexQuestion);
-        return a == null ? -1 : a;
+        if (a == null)
+            return new Answer(indexQuestion, question.getText(), question.getVariant(question.getCorrectVariant()),
+                    question.getCorrectVariant());
+        else
+            return new Answer(indexQuestion, question.getText(), question.getVariant(question.getCorrectVariant()),
+                    question.getVariant(a), question.getCorrectVariant(), a);
     }
 
     @Override
